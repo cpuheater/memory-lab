@@ -11,7 +11,8 @@ from dataclasses import dataclass
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import numpy as np
-from networks import LSTMWithLinear, CustomLSTMWithLinear, sLSTMWithLinear
+from networks.lstm import LSTMWithLinear, CustomLSTMWithLinear
+from networks.slstm import sLSTMWithLinear
 from tqdm import tqdm
 
 @dataclass
@@ -30,7 +31,7 @@ class Args:
     """"""
     output_dim: int = 10
     """"""
-    model_type: str = "sLSTM"
+    model_type: str = "CustomLSTM"
     """CustomLSTM | LSTM | sLSTM"""
 
 seed = int(time.time())
@@ -115,7 +116,7 @@ if __name__ == '__main__':
                 return sLSTMWithLinear
 
     model = choose_model(args.model_type)(**{"input_dim": args.input_dim, "hidden_dim" : args.hidden_dim, "output_dim": args.output_dim})
-
+    model = model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
     print(f"Training for {args.epochs} epochs")
