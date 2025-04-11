@@ -11,9 +11,10 @@ from dataclasses import dataclass
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import numpy as np
-from networks.lstm import LSTMWithLinear, CustomLSTMWithLinear
-from networks.slstm import sLSTMWithLinear
+from networks.lstm import *
+from networks.slstm import *
 from tqdm import tqdm
+from typing import Optional
 
 @dataclass
 class Args:
@@ -31,18 +32,9 @@ class Args:
     """"""
     output_dim: int = 10
     """"""
-    model_type: str = "CustomLSTM"
-    """CustomLSTM | LSTM | sLSTM"""
-
-seed = int(time.time())
-np.random.seed(seed)
-torch.manual_seed(seed)
-
-args = tyro.cli(Args)
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-exp_name = f'{os.path.basename(__file__).rstrip(".py")}_{datetime.now().strftime("%m-%d-%Y_%H:%M:%S")}'
-writer = SummaryWriter(f"runs/{exp_name}")
+    model_type: str = "sLSTM"
+    """CustomLSTM | LSTM | sLSTM | CustomLSTM_EXP1"""
+    seed: Optional[int] = None
 
 def time_since(since):
     s = time.time() - since
@@ -60,8 +52,22 @@ def save_model(model):
     torch.save(model.state_dict(),
                os.path.join(args.model_dir, f'{exp_name}.pt'))
 
+def select_model(model_type: str, input_dim: torch.Tensor, hidden_dim: torch.Tensor, output_dim: torch.Tensor):
+        match model_type:
+            case "CustomLSTM_EXP1":
+                rnn = CustomLSTM_EXP1(input_dim = input_dim, hidden_dim = hidden_dim)
+                return WithLinear(hidden_dim = hidden_dim, output_dim = output_dim, rnn = rnn)
+            case "CustomLSTM":
+                rnn = CustomLSTM(input_dim = input_dim, hidden_dim = hidden_dim)
+                return WithLinear(hidden_dim = hidden_dim, output_dim = output_dim, rnn = rnn)
+            case "LSTM":
+                rnn = nn.LSTM(input_dim, hidden_dim, batch_first=True)
+                return WithLinear(hidden_dim = hidden_dim, output_dim = output_dim, rnn = rnn)
+            case "sLSTM":
+                return sLSTMWithLinear(input_dim = input_dim, hidden_dim = hidden_dim, output_dim = output_dim)        
 
-def train(model, epoch, train_loader, valid_loader, criterion):
+
+def train(model, epoch, train_loader, valid_loader, criterion, writer):
     train_loss = 0
     train_accuracy = 0
     model.train()
@@ -96,6 +102,15 @@ def train(model, epoch, train_loader, valid_loader, criterion):
 
 
 if __name__ == '__main__':
+    args = tyro.cli(Args)
+    if not args.seed:
+        args.seed = int(time.time())
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     train_dataset = datasets.MNIST(root='./data',
                             train=True,
                             transform=transforms.ToTensor(),
@@ -106,19 +121,12 @@ if __name__ == '__main__':
                            transform=transforms.ToTensor())
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
 
-    def choose_model(model_type: str):
-        match model_type:
-            case "CustomLSTM":
-                return CustomLSTMWithLinear
-            case "LSTM":
-                return LSTMWithLinear
-            case "sLSTM":
-                return sLSTMWithLinear
-
-    model = choose_model(args.model_type)(**{"input_dim": args.input_dim, "hidden_dim" : args.hidden_dim, "output_dim": args.output_dim})
+    model = select_model(args.model_type, args.input_dim, args.hidden_dim, args.output_dim)
     model = model.to(device)
+    exp_name = f'{os.path.basename(__file__).rstrip(".py")}_{args.model_type}_{datetime.now().strftime("%m-%d-%Y_%H:%M:%S")}'
+    writer = SummaryWriter(f"runs/{exp_name}")
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
-    print(f"Training for {args.epochs} epochs")
+    print(f"Training model: {args.model_type} for {args.epochs} epochs")
     for epoch in range(1, args.epochs + 1):
-        train(model, epoch, train_loader, valid_loader, criterion)
+        train(model, epoch, train_loader, valid_loader, criterion, writer)
