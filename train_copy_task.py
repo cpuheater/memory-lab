@@ -33,8 +33,8 @@ class Args:
     output_dim: int = 10
     """"""
     model_type: str = "CustomLSTM"
-    """CustomLSTM | LSTM | sLSTM"""
-    blank_length = 200
+    """CustomLSTM_EXP1 | CustomLSTM | LSTM | sLSTM"""
+    blank_length = 400
     """"""
     signal_length = 10
 
@@ -66,7 +66,7 @@ def save_model(model):
 
 def train(model, epochs, train_loader, valid_loader, criterion):
     for epoch in range(1, epochs + 1):
-        train_loss = 0
+        train_loss = []
         train_accuracy = []
         model.train()
         start = time.time()
@@ -74,31 +74,32 @@ def train(model, epochs, train_loader, valid_loader, criterion):
             images, labels = images.to(device), torch.squeeze(labels).long().to(device)
             outputs = model(images)
             loss = criterion(outputs.transpose(1, 2), labels)
-            train_loss += loss.item()
+            train_loss.append(loss.item())
             model.zero_grad()
             loss.backward()
             optimizer.step()
             train_accuracy.append(accuracy(outputs, labels) / (labels.shape[0] * labels.shape[1]))
 
+        mean_train_loss = np.mean(train_loss)
         mean_train_accuracy = 100 * np.mean(train_accuracy)
-        print(f'[{time_since(start)}] Train Epoch: {epoch} Loss: {train_loss} Accuracy: {np.mean(mean_train_accuracy)}')
-        writer.add_scalar("train/loss", train_loss, epoch)
+        print(f'[{time_since(start)}] Train Epoch: {epoch} Loss: {mean_train_loss} Accuracy: {np.mean(mean_train_accuracy)}')
+        writer.add_scalar("train/loss", mean_train_loss, epoch)
         writer.add_scalar("train/accuracy", mean_train_accuracy, epoch)
-        valid_loss = 0
+        valid_loss = []
         valid_accuracy = []
         model.eval()
         with torch.no_grad():
             for i, (images, labels) in enumerate(valid_loader, 1):
                 images, labels = images.to(device), torch.squeeze(labels).long().to(device)
                 outputs = model(images)
-                log_probs = F.log_softmax(outputs, dim=2)
-                loss = criterion(log_probs.transpose(1, 2), labels)
-                valid_loss += loss.item()
+                loss = criterion(outputs.transpose(1, 2), labels)
+                valid_loss.append(loss.item())
                 valid_accuracy.append(accuracy(outputs, labels) / (labels.shape[0] * labels.shape[1]))
         mean_valid_accuracy = 100 * np.mean(valid_accuracy)
-        writer.add_scalar("valid/loss", valid_loss, epoch)
+        mean_valid_loss = np.mean(valid_loss)
+        writer.add_scalar("valid/loss", mean_valid_loss, epoch)
         writer.add_scalar("valid/accuracy", mean_valid_accuracy, epoch)
-        print(f"[{time_since(start)}] Valid Epoch: {epoch} Loss: {valid_loss} Accuracy: {mean_valid_accuracy}")
+        print(f"[{time_since(start)}] Valid Epoch: {epoch} Loss: {mean_valid_loss} Accuracy: {mean_valid_accuracy}")
 
 
 if __name__ == '__main__':
