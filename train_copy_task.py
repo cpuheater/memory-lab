@@ -20,7 +20,7 @@ from datasets.copy_task_dataset import CopyTaskDataset
 class Args:
     batch_size: int = 100
     """"""
-    epochs: int = 12
+    epochs: int = 60
     """"""
     lr: int = 0.001
     """"""
@@ -34,9 +34,10 @@ class Args:
     """"""
     model_type: str = "CustomLSTM"
     """CustomLSTM_EXP1 | CustomLSTM | LSTM | sLSTM"""
-    blank_length = 400
+    blank_length = 200
     """"""
     signal_length = 10
+    max_grad_norm: float = 1.0
 
 
 seed = int(time.time())
@@ -56,7 +57,9 @@ def time_since(since):
 
 def accuracy(outputs, labels):
     _, preds = torch.max(outputs, 2)
-    return torch.sum(preds == labels).item()
+    #print(f"output: {preds[1][-13:].cpu().numpy().tolist()} labels {labels[1][-13:].cpu().numpy().tolist()}")
+    #print(f"output: {preds[0][-13:].cpu().numpy().tolist()} labels {labels[0][-13:].cpu().numpy().tolist()}")
+    return torch.sum(preds[:,-10:] == labels[:,-10:]).item()
 
 def save_model(model):
     if not os.path.exists(args.model_dir):
@@ -64,8 +67,8 @@ def save_model(model):
     torch.save(model.state_dict(),
                os.path.join(args.model_dir, f'{exp_name}.pt'))
 
-def train(model, epochs, train_loader, valid_loader, criterion):
-    for epoch in range(1, epochs + 1):
+def train(model, args, train_loader, valid_loader, criterion):
+    for epoch in range(1, args.epochs + 1):
         train_loss = []
         train_accuracy = []
         model.train()
@@ -77,6 +80,7 @@ def train(model, epochs, train_loader, valid_loader, criterion):
             train_loss.append(loss.item())
             model.zero_grad()
             loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
             optimizer.step()
             train_accuracy.append(accuracy(outputs, labels) / (labels.shape[0] * labels.shape[1]))
 
@@ -110,7 +114,7 @@ if __name__ == '__main__':
 
     model = select_model(args.model_type, input_dim = args.input_dim, hidden_dim = args.hidden_dim, output_dim = args.output_dim, use_embed=True)
     model = model.to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
     print(f"Training for {args.epochs} epochs")
-    train(model, args.epochs, train_loader, valid_loader, criterion)
+    train(model, args, train_loader, valid_loader, criterion)

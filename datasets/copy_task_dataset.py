@@ -14,10 +14,10 @@ class CopyTaskDataset(Dataset):
         blank = [8]
         delimiter = [9]
         for i in range(samples):
-            after_letter = torch.tensor(blank*(blank_length-1)+delimiter+blank*9)
-            singal_letters = torch.randint(0, 8, (10,))
-            self.data[i,:] = torch.cat((singal_letters, after_letter))
-            self.target[i,:] = torch.cat((torch.tensor(blank*(blank_length+9)), singal_letters))
+            blanks = torch.tensor(blank*(blank_length-1)+delimiter+blank*9)
+            signal = torch.randint(0, 8, (signal_length,))
+            self.data[i,:] = torch.cat((signal, blanks))
+            self.target[i,:] = torch.cat((torch.tensor(blank*(blank_length+9)), signal))
         self.data = self.data.long().to(device)
         self.target = self.target.to(device)
 
