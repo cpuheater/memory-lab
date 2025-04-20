@@ -96,7 +96,7 @@ class CustomLSTM_EXP1(nn.Module):
                 torch.tanh(gates[:, HS*2:HS*3]),
                 torch.sigmoid(gates[:, HS*3:]), # output gate
             )
-            c_t = f_t * c_t + self.norm(i_t * g_t)    
+            c_t = f_t * c_t + i_t * g_t    
             h_t = o_t * torch.tanh(c_t)
             hidden_seq.append(h_t.unsqueeze(0))
         hidden_seq = torch.cat(hidden_seq, dim=0)

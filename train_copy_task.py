@@ -20,7 +20,7 @@ from datasets.copy_task_dataset import CopyTaskDataset
 class Args:
     batch_size: int = 100
     """"""
-    epochs: int = 60
+    epochs: int = 120
     """"""
     lr: int = 0.001
     """"""
@@ -32,7 +32,7 @@ class Args:
     """"""
     output_dim: int = 10
     """"""
-    model_type: str = "CustomLSTM"
+    model_type: str = "LSTM"
     """CustomLSTM_EXP1 | CustomLSTM | LSTM | sLSTM"""
     blank_length = 200
     """"""
@@ -59,7 +59,7 @@ def accuracy(outputs, labels):
     _, preds = torch.max(outputs, 2)
     #print(f"output: {preds[1][-13:].cpu().numpy().tolist()} labels {labels[1][-13:].cpu().numpy().tolist()}")
     #print(f"output: {preds[0][-13:].cpu().numpy().tolist()} labels {labels[0][-13:].cpu().numpy().tolist()}")
-    return torch.sum(preds[:,-10:] == labels[:,-10:]).item()
+    return torch.sum(preds[:,-args.signal_length:] == labels[:,-args.signal_length:]).item()
 
 def save_model(model):
     if not os.path.exists(args.model_dir):
@@ -82,7 +82,7 @@ def train(model, args, train_loader, valid_loader, criterion):
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
             optimizer.step()
-            train_accuracy.append(accuracy(outputs, labels) / (labels.shape[0] * labels.shape[1]))
+            train_accuracy.append(accuracy(outputs, labels) / (labels.shape[0] * args.signal_length))
 
         mean_train_loss = np.mean(train_loss)
         mean_train_accuracy = 100 * np.mean(train_accuracy)
@@ -116,5 +116,5 @@ if __name__ == '__main__':
     model = model.to(device)
     optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
-    print(f"Training for {args.epochs} epochs")
+    print(f"Training model: {args.model_type} num of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)} for {args.epochs} epochs")
     train(model, args, train_loader, valid_loader, criterion)

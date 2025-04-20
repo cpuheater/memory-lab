@@ -112,6 +112,6 @@ if __name__ == '__main__':
     writer = SummaryWriter(f"runs/{exp_name}")
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
-    print(f"Training model: {args.model_type} for {args.epochs} epochs")
+    print(f"Training model: {args.model_type} num of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)} for {args.epochs} epochs")
     for epoch in range(1, args.epochs + 1):
         train(model, epoch, train_loader, valid_loader, criterion, writer)
