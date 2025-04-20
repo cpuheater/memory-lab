@@ -11,10 +11,10 @@ from dataclasses import dataclass
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import numpy as np
-from networks.lstm import *
-from networks.slstm import *
 from tqdm import tqdm
 from typing import Optional
+from networks.select_model import select_model
+
 
 @dataclass
 class Args:
@@ -32,7 +32,7 @@ class Args:
     """"""
     output_dim: int = 10
     """"""
-    model_type: str = "sLSTM"
+    model_type: str = "CustomLSTM_EXP1"
     """CustomLSTM | LSTM | sLSTM | CustomLSTM_EXP1"""
     seed: Optional[int] = None
 
@@ -52,21 +52,6 @@ def save_model(model):
     torch.save(model.state_dict(),
                os.path.join(args.model_dir, f'{exp_name}.pt'))
 
-def select_model(model_type: str, input_dim: torch.Tensor, hidden_dim: torch.Tensor, output_dim: torch.Tensor):
-        match model_type:
-            case "CustomLSTM_EXP1":
-                rnn = CustomLSTM_EXP1(input_dim = input_dim, hidden_dim = hidden_dim)
-                return WithLinear(hidden_dim = hidden_dim, output_dim = output_dim, rnn = rnn)
-            case "CustomLSTM":
-                rnn = CustomLSTM(input_dim = input_dim, hidden_dim = hidden_dim)
-                return WithLinear(hidden_dim = hidden_dim, output_dim = output_dim, rnn = rnn)
-            case "LSTM":
-                rnn = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-                return WithLinear(hidden_dim = hidden_dim, output_dim = output_dim, rnn = rnn)
-            case "sLSTM":
-                return sLSTMWithLinear(input_dim = input_dim, hidden_dim = hidden_dim, output_dim = output_dim)        
-
-
 def train(model, epoch, train_loader, valid_loader, criterion, writer):
     train_loss = 0
     train_accuracy = 0
@@ -75,12 +60,12 @@ def train(model, epoch, train_loader, valid_loader, criterion, writer):
     for i, (images, labels) in enumerate(train_loader, 1):
         images, labels = images.view(-1, args.seq_dim, args.input_dim).to(device), labels.to(device)
         outputs = model(images)
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs[:,-1,:], labels)
         train_loss += loss.item()
         model.zero_grad()
         loss.backward()
         optimizer.step()
-        train_accuracy += accuracy(outputs, labels)
+        train_accuracy += accuracy(outputs[:,-1,:], labels)
 
     print(f'[{time_since(start)}] Train Epoch: {epoch} Loss: {train_loss} Accuracy: {100 * train_accuracy/len(train_loader.dataset)}')
     writer.add_scalar("train/loss", train_loss, epoch)
@@ -92,9 +77,9 @@ def train(model, epoch, train_loader, valid_loader, criterion, writer):
         for i, (images, labels) in enumerate(valid_loader, 1):
             images, labels = images.view(-1, args.seq_dim, args.input_dim).to(device), labels.to(device)
             outputs = model(images)
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs[:,-1,:], labels)
             valid_loss += loss.item()
-            valid_accuracy += accuracy(outputs, labels)
+            valid_accuracy += accuracy(outputs[:,-1,:], labels)
 
     writer.add_scalar("valid/loss", valid_loss, epoch)
     writer.add_scalar("valid/accuracy", 100 * valid_accuracy/len(valid_loader.dataset), epoch)
