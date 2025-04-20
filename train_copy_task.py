@@ -73,8 +73,7 @@ def train(model, epochs, train_loader, valid_loader, criterion):
         for i, (images, labels) in enumerate(train_loader, 1):
             images, labels = images.to(device), torch.squeeze(labels).long().to(device)
             outputs = model(images)
-            log_probs = F.log_softmax(outputs, dim=2)
-            loss = criterion(log_probs.transpose(1, 2), labels)
+            loss = criterion(outputs.transpose(1, 2), labels)
             train_loss += loss.item()
             model.zero_grad()
             loss.backward()
@@ -111,6 +110,6 @@ if __name__ == '__main__':
     model = select_model(args.model_type, input_dim = args.input_dim, hidden_dim = args.hidden_dim, output_dim = args.output_dim, use_embed=True)
     model = model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
-    criterion = nn.NLLLoss().to(device)#nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss()
     print(f"Training for {args.epochs} epochs")
     train(model, args.epochs, train_loader, valid_loader, criterion)
