@@ -20,7 +20,7 @@ from datasets.copy_task_dataset import CopyTaskDataset
 class Args:
     batch_size: int = 100
     """"""
-    epochs: int = 120
+    epochs: int = 400
     """"""
     lr: int = 0.001
     """"""
@@ -46,7 +46,7 @@ torch.manual_seed(seed)
 args = tyro.cli(Args)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-exp_name = f'{os.path.basename(__file__).rstrip(".py")}_{datetime.now().strftime("%m-%d-%Y_%H:%M:%S")}'
+exp_name = f'{os.path.basename(__file__).rstrip(".py")}_{args.model_type}_{args.blank_length}_{datetime.now().strftime("%m-%d-%Y_%H:%M:%S")}'
 writer = SummaryWriter(f"runs/{exp_name}")
 
 def time_since(since):
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     model = select_model(args.model_type, input_dim = args.input_dim, hidden_dim = args.hidden_dim, output_dim = args.output_dim, use_embed=True)
     model = model.to(device)
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
     print(f"Training model: {args.model_type} num of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)} for {args.epochs} epochs")
     train(model, args, train_loader, valid_loader, criterion)
